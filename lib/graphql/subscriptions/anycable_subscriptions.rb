@@ -120,6 +120,8 @@ module GraphQL
 
       # Return the query from "storage" (in redis)
       def read_subscription(subscription_id)
+        return nil unless subscription_id
+
         subscription = redis.mapped_hmget(
           "#{SUBSCRIPTION_PREFIX}#{subscription_id}",
           :query_string, :variables, :context, :operation_name
@@ -141,6 +143,8 @@ module GraphQL
 
       # The channel was closed, forget about it.
       def delete_subscription(subscription_id)
+        return unless subscription_id
+
         # Remove subscription ids from all events
         topics = redis.smembers(SUBSCRIPTION_EVENTS_PREFIX + subscription_id)
         topics.each do |event_topic|

@@ -75,7 +75,7 @@ module GraphQL
           subscriptions = redis.smembers(EVENT_FINGERPRINT_PREFIX + fingerprint)
           result = execute_update(subscriptions.first, event, object)
           # Having calculated the result _once_, send the same payload to all subscribers
-          payload = { result: result.to_h, more: true }.to_json
+          payload = { result: result.to_h, more: true }.to_json.freeze
           subscriptions.each do |subscription_id|
             deliver(subscription_id, payload)
           end

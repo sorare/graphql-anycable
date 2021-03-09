@@ -75,18 +75,17 @@ module GraphQL
           subscriptions = redis.smembers(EVENT_FINGERPRINT_PREFIX + fingerprint)
           result = execute_update(subscriptions.first, event, object)
           # Having calculated the result _once_, send the same payload to all subscribers
+          payload = { result: result.to_h, more: true }.to_json
           subscriptions.each do |subscription_id|
-            next unless redis.exists?(SUBSCRIPTION_PREFIX + subscription_id)
-            deliver(subscription_id, result)
+            deliver(subscription_id, payload)
           end
         end
       end
 
       # This subscription was re-evaluated.
       # Send it to the specific stream where this client was waiting.
-      def deliver(subscription_id, result)
-        payload = {result: result.to_h, more: true}
-        anycable.broadcast(SUBSCRIPTION_PREFIX + subscription_id, payload.to_json)
+      def deliver(subscription_id, payload)
+        anycable.broadcast(SUBSCRIPTION_PREFIX + subscription_id, payload)
       end
 
       # Save query to "storage" (in redis)
@@ -150,6 +149,8 @@ module GraphQL
         topics.each do |event_topic|
           redis.smembers(SUBSCRIPTION_EVENTS_FINGERPRINT_PREFIX + event_topic).each do |fingerprint|
             redis.srem(EVENT_FINGERPRINT_PREFIX + fingerprint, subscription_id)
+
+            redis.srem(SUBSCRIPTION_EVENTS_FINGERPRINT_PREFIX + event_topic, fingerprint) if redis.scard(EVENT_FINGERPRINT_PREFIX + fingerprint).zero?
           end
         end
         # Delete subscription itself

@@ -8,7 +8,8 @@ module GraphQL
       def clean
         clean_channels
         clean_subscriptions
-        clean_events
+        clean_fingerprint_subscriptions
+        clean_topic_fingerprints
       end
 
       def clean_channels
@@ -35,16 +36,23 @@ module GraphQL
         end
       end
 
-      def clean_events
-        redis.scan_each(match: "#{adapter::SUBSCRIPTION_EVENTS_PREFIX}*") do |key|
-          subscription_id = key.sub(/\A#{adapter::SUBSCRIPTION_EVENTS_PREFIX}/, "")
-          next if redis.exists?(adapter::SUBSCRIPTION_PREFIX + subscription_id)
+      def clean_fingerprint_subscriptions
+        redis.scan_each(match: "#{adapter::EVENT_FINGERPRINT_PREFIX}*") do |key|
+          redis.smembers(key).each do |subscription_id|
+            next if redis.exists?(adapter::SUBSCRIPTION_PREFIX + subscription_id)
 
-          redis.smembers(key).each do |event_topic|
-            redis.srem(adapter::EVENT_PREFIX + event_topic, subscription_id)
+            redis.srem(key, subscription_id)
           end
+        end
+      end
 
-          redis.del(key)
+      def clean_topic_fingerprints
+        redis.scan_each(match: "#{adapter::SUBSCRIPTION_EVENTS_FINGERPRINT_PREFIX}*") do |key|
+          redis.smembers(key).each do |fingerprint|
+            next if redis.exists?(adapter::EVENT_FINGERPRINT_PREFIX + fingerprint)
+
+            redis.srem(key, fingerprint)
+          end
         end
       end
 

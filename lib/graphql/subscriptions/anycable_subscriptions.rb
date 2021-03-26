@@ -164,14 +164,16 @@ module GraphQL
 
       # Return the query from "storage" (in redis)
       def read_subscription(subscription_id)
-        redis.mapped_hmget(
+        subscription = redis.mapped_hmget(
           "#{SUBSCRIPTION_PREFIX}#{subscription_id}",
           :query_string, :variables, :context, :operation_name
-        ).tap do |subscription|
-          subscription[:context] = @serializer.load(subscription[:context])
-          subscription[:variables] = JSON.parse(subscription[:variables])
-          subscription[:operation_name] = nil if subscription[:operation_name].strip == ""
-        end
+        )
+        return nil unless subscription[:context]
+
+        subscription[:context] = @serializer.load(subscription[:context])
+        subscription[:variables] = JSON.parse(subscription[:variables])
+        subscription[:operation_name] = nil if subscription[:operation_name].strip == ""
+        subscription
       end
 
       def delete_subscription(subscription_id)
